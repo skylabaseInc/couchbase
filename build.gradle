@@ -1,0 +1,109 @@
+buildscript {
+    repositories {
+        jcenter();
+    }
+    
+    dependencies {
+        //Check for the latest version here: http://plugins.gradle.org/plugin/com.jfrog.artifactory
+        classpath "org.jfrog.buildinfo:build-info-extractor-gradle:4+"
+    }
+}
+
+plugins {
+    id 'com.github.hierynomus.license' version '0.13.1'
+}
+
+apply plugin: "com.jfrog.artifactory"
+
+group 'io.mifos.core'
+version '1.0.0-RELEASE'
+
+ext.versions = [
+        springcontext        : '4.3.3.RELEASE',
+        springboot           : '1.4.1.RELEASE',
+        findbugs             : '3.0.1',
+        frameworklang        : '1.0.0-RELEASE'
+]
+
+apply plugin: 'java'
+apply plugin: 'idea'
+apply plugin: 'maven'
+apply plugin: 'maven-publish'
+apply plugin: 'license'
+
+tasks.withType(JavaCompile) {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+repositories {
+    jcenter()
+    mavenLocal()
+}
+
+dependencies {
+    compile(
+            [group: 'org.springframework', name: 'spring-context', version: versions.springcontext],
+            [group: 'com.google.code.findbugs', name: 'jsr305', version: versions.findbugs],
+            [group: 'io.mifos.core', name: 'core-lang', version: versions.frameworklang],
+            [group: 'org.springframework.boot', name: 'spring-boot-starter-data-jpa', version: versions.springboot],
+            [group: 'com.jolbox', name: 'bonecp', version: '0.8.0.RELEASE'],
+            [group: 'org.flywaydb', name: 'flyway-core', version: '4.0.1']
+    )
+
+    testCompile(
+            [group: 'org.springframework.boot', name: 'spring-boot-starter-test', version: versions.springboot]
+    )
+}
+
+jar {
+    from sourceSets.main.allSource
+}
+
+publishing {
+    publications {
+        mariadbPublication(MavenPublication) {
+            from components.java
+            groupId project.group
+            artifactId project.name
+            version project.version
+        }
+    }
+}
+
+artifactory {
+    contextUrl = System.getenv("ARTIFACTORY_URL")   //The base Artifactory URL if not overridden by the publisher/resolver
+    publish {
+        repository {
+            repoKey = 'libs-release-local'
+            username = System.getenv("ARTIFACTORY_USER")
+            password = System.getenv("ARTIFACTORY_PW")
+            maven = true
+            
+        }
+        defaults {
+            publications('mariadbPublication')
+            publishArtifacts = true
+        }
+    }
+    resolve {
+        repository {
+            repoKey = 'libs-release'
+            username = System.getenv("ARTIFACTORY_USER")
+            password = System.getenv("ARTIFACTORY_PW")
+            maven = true
+            
+        }
+    }
+}
+
+
+license {
+    header rootProject.file('HEADER')
+    strictCheck true
+    mapping {
+        java = 'SLASHSTAR_STYLE'
+    }
+    ext.year = Calendar.getInstance().get(Calendar.YEAR)
+    ext.name = 'The Mifos Initiative'
+}
